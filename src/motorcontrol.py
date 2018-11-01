@@ -3,7 +3,7 @@ import time
 import pygame
 
 ser = serial.Serial(port='/dev/ttyACM0', baudrate=9600, parity=serial.PARITY_NONE, stopbits=serial.STOPBITS_ONE, bytesize=serial.EIGHTBITS, timeout=5)
-time.sleep(2) # wait for Arduino to establish communication  
+time.sleep(3) # wait for Arduino to establish communication  
 
 pygame.init()
 
@@ -77,11 +77,30 @@ while done==False:
     textPrint.print(screen, "Steering value: {:>2.2f}".format(steering))
     textPrint.unindent()
 
-    if speed < 0.1:
-        speed_conv = 0
+    ''' Serial msg in the form XXXYYY
+    XXX is velocity with 0 full backward, 127 stop, 254 full ahead
+    YYY is steering with 0 leftmost, 127 middle, 254 rightmost
+    '''
+    serial_msg = ""
+    if abs(speed) < 0.05:
+        speed_conv = 127
     else:
-	    speed_conv = int(speed * 185 + 70)
-    ser.write((str(speed_conv)+"\n").encode())
+	    speed_conv = int(speed * 127 + 127)
+    steer_conv = int(steering * 127 + 127)
+
+    # Padding to make sure the string is three characters long, 7 -> 007
+    pad_speed, pad_steer = "", ""
+    if speed_conv < 10:
+        pad_speed = "00"
+    elif speed_conv < 100: 
+        pad_speed = "0"
+    if steer_conv < 10:
+        pad_steer = "00"
+    elif steer_conv < 100:
+        pad_steer = "0"
+    serial_msg = pad_speed + str(speed_conv) + pad_steer + str(steer_conv) + "\n"
+    textPrint.print(screen, "Serial message: {0}".format(serial_msg))
+    ser.write(serial_msg.encode())
     ser.flush() #
 
     # ALL CODE TO DRAW SHOULD GO ABOVE THIS COMMENT

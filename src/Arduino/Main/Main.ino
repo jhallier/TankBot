@@ -5,6 +5,9 @@ int DR1 = 9;
 int PW2 = 10;
 int DR2 = 11;
 
+// Length of the serial message
+int msg_len = 6;
+
 void setup() {
   Serial.begin(9600);
   //Serial.println("Set motor speed (0-255)");
@@ -12,6 +15,39 @@ void setup() {
   pinMode(DR1, OUTPUT);
   pinMode(PW2, OUTPUT);
   pinMode(DR2, OUTPUT);
+}
+
+void move(int speed, int steering) {
+   float steer_float = (steering - 127) / 127;
+
+   // forward
+   if (speed > 127) {
+     int forward_speed = int((speed - 127) * 2);
+     Serial.println("Forward at speed: ");
+     Serial.print(forward_speed);
+     Serial.println("Steering value: ");
+     Serial.print(steer_float); 
+     if (steer_float > 0) {
+       forward_left(forward_speed);
+       forward_right(int(forward_speed * steer_float));
+     }
+     else {
+       forward_left(int((-1) * forward_speed * steer_float));
+       forward_right(forward_speed);
+     }
+   }
+   // backward
+   else if (speed < 127) {
+     int backward_speed = int((127 - speed) * 2);
+     if (steer_float > 0) {
+       backward_left(backward_speed);
+       backward_right(int(backward_speed * steer_float));
+     }
+     else {
+       backward_left(int((-1) * backward_speed * steer_float));
+       backward_right(backward_speed);
+     }
+   }     
 }
 
 // 255 = full speed
@@ -38,36 +74,50 @@ void backward_right(int speed) {
 
 char rx_byte = 0;
 String rx_str = "";
-boolean not_number = false;
-int speed = 0;
+
+int speed = 127;
+int steering = 127;
 
 void loop() {
 
   if (Serial.available() > 0) {
-    rx_byte = Serial.read();  
-    if ((rx_byte >= '0') && (rx_byte <= '9')) {
+    rx_str = "";
+    rx_byte = Serial.read();
+
+    while ((rx_byte >= '0') && (rx_byte <= '9') && Serial.available()) {
       rx_str += rx_byte;
+      rx_byte = Serial.read();
     }
-    else if (rx_byte == '\n') {
-      // end of string
-      if (not_number) {
-        Serial.println("Not a number");
+    
+    Serial.println("Serial string length: ");
+    Serial.print(rx_str.length());
+    
+    if ((rx_byte == '\n') && (rx_str.length() == msg_len)) {
+        
+      String speed_str = "";
+      String steering_str = "";
+      
+      for (int i=0; i<=2; i++) {
+        speed_str += rx_str[i];
       }
-      else {
-        speed = rx_str.toInt();
-        Serial.println("Speed: ");
-        Serial.print(speed);
-        forward_right(speed);
-        forward_left(speed);
+      speed = speed_str.toInt();
+      
+      for (int i=3; i<=5; i++) {
+        steering_str += rx_str[i];
       }
-      not_number = false;         // reset flag
-      rx_str = "";                // clear the string for reuse
+      steering = steering_str.toInt();
     }
     else {
-      not_number = true;    // flag a non-number
+      speed = 127;
+      steering = 127;
     }
+    
+    //Serial.println("Speed and steering values: ");
+    //Serial.print(speed);
+    //Serial.print(steering);
+    
+    move(speed, steering);
   } 
- 
 }
   
   
